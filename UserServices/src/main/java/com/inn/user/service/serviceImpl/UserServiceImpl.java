@@ -5,10 +5,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -16,15 +13,19 @@ import com.inn.user.service.entites.Hotel;
 import com.inn.user.service.entites.Rating;
 import com.inn.user.service.entites.User;
 import com.inn.user.service.exception.ResourceNotFoundEx;
+import com.inn.user.service.external.services.HotelService;
 import com.inn.user.service.repository.UserRepository;
 import com.inn.user.service.service.UserService;
 
 @Service
 public class UserServiceImpl implements UserService {
-	
-	 private Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
+
+//	 private Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
 	@Autowired
 	private UserRepository userRepository;
+
+	@Autowired
+	private HotelService hotelService;
 
 	@Autowired
 	private RestTemplate restTemplate;
@@ -38,42 +39,52 @@ public class UserServiceImpl implements UserService {
 
 	@Override
 	public List<User> getAllUser() {
-		
+
 		List<User> users = userRepository.findAll();
-		 users.forEach(user -> {
-		        Rating[] ratingOfUser = restTemplate
-		                .getForObject("http://RATINGSERVICE/ratings/users/" + user.getUserId(), Rating[].class);
+		users.forEach(user -> {
+			Rating[] ratingOfUser = restTemplate.getForObject("http://RATINGSERVICE/ratings/users/" + user.getUserId(),
+					Rating[].class);
 
-		        List<Rating> ratings = Arrays.stream(ratingOfUser).toList();
+			List<Rating> ratings = Arrays.stream(ratingOfUser).toList();
 
-		        List<Rating> ratingList = ratings.stream().map(rating -> {
-		            ResponseEntity<Hotel> forEntity = restTemplate
-		                    .getForEntity("http://HOTELSERVICE/hotels/" + rating.getHotelId(), Hotel.class);
-		            Hotel body = forEntity.getBody();
-		            rating.setHotel(body); // Assuming Rating class has a setHotel method
-		            return rating;
-		        }).collect(Collectors.toList());
+			List<Rating> ratingList = ratings.stream().map(rating -> {
+				/*
+				 * ResponseEntity<Hotel> forEntity = restTemplate
+				 * .getForEntity("http://HOTELSERVICE/hotels/" + rating.getHotelId(),
+				 * Hotel.class);
+				 */
 
-		        user.setRatings(ratingList);
-		    });
+				Hotel hotel = hotelService.getHotel(rating.getHotelId());
+//		            Hotel body = forEntity.getBody();
+				rating.setHotel(hotel);
+				return rating;
+			}).collect(Collectors.toList());
 
-		    return users;
+			user.setRatings(ratingList);
+		});
+
+		return users;
 	}
 
 	@Override
 	public User getUser(String userId) {
 
 		User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundEx());
-		Rating[] ratingOfUser = restTemplate
-				.getForObject("http://localhost:8083/ratings/users/" + user.getUserId(), Rating[].class);
-		
+		Rating[] ratingOfUser = restTemplate.getForObject("http://RATINGSERVICE/ratings/users/" + user.getUserId(),
+				Rating[].class);
+
 		List<Rating> ratings = Arrays.stream(ratingOfUser).toList();
 
 		List<Rating> ratingList = ratings.stream().map(rating -> {
-			ResponseEntity<Hotel> forEntity = restTemplate
-					.getForEntity("http://localhost:8082/hotels/" + rating.getHotelId(), Hotel.class);
-			Hotel body = forEntity.getBody();
-			rating.setHotel(body); // Assuming Rating class has a setHotel method
+			/*
+			 * ResponseEntity<Hotel> forEntity = restTemplate
+			 * .getForEntity("http://HOTELSERVICE/hotels/" + rating.getHotelId(),
+			 * Hotel.class);
+			 */
+
+			Hotel hotel = hotelService.getHotel(rating.getHotelId());
+//            Hotel body = forEntity.getBody();
+			rating.setHotel(hotel); // Assuming Rating class has a setHotel method
 			return rating;
 		}).collect(Collectors.toList());
 
